@@ -371,6 +371,7 @@
         </div>
 
         <button class="btn-block" id="save-facture">Enregistrer la facture</button>
+        <button class="btn-secondary" id="cancel-edit" style="display:none;">Annuler la modification</button>
       </div>
     </section>
 
@@ -464,6 +465,7 @@ let selectedLoginUser = null;
 let produitsCache = [];
 let facturesCache = [];
 let ligneIdCounter = 0;
+let editingFactureId = null;
 
 /* ---------------- helpers ---------------- */
 function fmt(n){
@@ -680,7 +682,25 @@ function updateTotals(){
 }
 document.getElementById('f-acompte').addEventListener('input', updateTotals);
 
-/* ================= SAVE FACTURE ================= */
+/* ================= SAVE / UPDATE FACTURE ================= */
+function resetFactureForm(){
+  document.getElementById('f-client').value='';
+  document.getElementById('f-client-numero').value='';
+  document.getElementById('f-acompte').value='0';
+  document.getElementById('lignes-container').innerHTML='';
+  document.querySelectorAll('.suggest-row').forEach(s=>s.remove());
+  addLigne();
+  editingFactureId = null;
+  document.getElementById('save-facture').textContent = 'Enregistrer la facture';
+  document.getElementById('cancel-edit').style.display='none';
+  document.getElementById('f-date').disabled = false;
+}
+
+document.getElementById('cancel-edit').addEventListener('click', async ()=>{
+  resetFactureForm();
+  await loadNextNumero();
+});
+
 document.getElementById('save-facture').addEventListener('click', async ()=>{
   const clientNom = document.getElementById('f-client').value.trim();
   if(!clientNom){ alert('Indique le nom du client.'); return; }
@@ -700,11 +720,43 @@ document.getElementById('save-facture').addEventListener('click', async ()=>{
   if(lignes.length===0){ alert('Ajoute au moins une ligne.'); return; }
 
   const statut = restant<=0 ? 'soldee' : 'en_cours';
+  let factureData, factureErr;
 
-  const {data: factureData, error: factureErr} = await sb.from('factures').insert({
+  if(editingFactureId){
+    // ---- UPDATE mode ----
+    ({data: factureData, error: factureErr} = await sb.from('factures')
+      .update({
+        date_facture: date, client_nom: clientNom, client_numero: clientNumero,
+        total, acompte, restant, statut
+      })
+      .eq('id', editingFactureId)
+      .select().single());
+
+    if(factureErr){ alert('Erreur mise à jour: '+factureErr.message); return; }
+
+    await sb.from('facture_lignes').delete().eq('facture_id', editingFactureId);
+    const lignesToInsert = lignes.map(l=>({...l, facture_id: editingFactureId}));
+    await sb.from('facture_lignes').insert(lignesToInsert);
+
+    await sb.from('clients').upsert({nom: clientNom, numero: clientNumero}, {onConflict:'nom'}).select();
+
+    openPrintView(factureData, lignes);
+    resetFactureForm();
+    await loadNextNumero();
+    await loadClientsList();
+    document.querySelectorAll('nav.tabbar button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    document.querySelector('[data-tab="tab-factures"]').classList.add('active');
+    document.getElementById('tab-factures').classList.add('active');
+    renderFactures();
+    return;
+  }
+
+  // ---- INSERT mode ----
+  ({data: factureData, error: factureErr} = await sb.from('factures').insert({
     numero, date_facture: date, client_nom: clientNom, client_numero: clientNumero,
     utilisateur: currentUser.nom, total, acompte, restant, statut
-  }).select().single();
+  }).select().single());
 
   if(factureErr){ alert('Erreur enregistrement: '+factureErr.message); return; }
 
@@ -721,12 +773,7 @@ document.getElementById('save-facture').addEventListener('click', async ()=>{
   openPrintView(factureData, lignes);
 
   // reset form
-  document.getElementById('f-client').value='';
-  document.getElementById('f-client-numero').value='';
-  document.getElementById('f-acompte').value='0';
-  document.getElementById('lignes-container').innerHTML='';
-  document.querySelectorAll('.suggest-row').forEach(s=>s.remove());
-  addLigne();
+  resetFactureForm();
   await loadNextNumero();
   await loadClientsList();
 });
@@ -821,8 +868,15 @@ async function renderFactures(){
       <div class="amounts">
         ${badge}
         <span class="montant">${fmt(f.total)}</span>
+      </div>
+      <div class="facture-actions" style="display:flex;gap:8px;margin-top:10px;">
+        <button type="button" class="fa-view" style="flex:1;padding:9px;border-radius:9px;border:1.5px solid var(--line);background:var(--cream);font-size:12.5px;font-weight:600;">Voir</button>
+        <button type="button" class="fa-edit" style="flex:1;padding:9px;border-radius:9px;border:1.5px solid var(--line);background:var(--cream);font-size:12.5px;font-weight:600;color:var(--orange-deep);">Modifier</button>
+        <button type="button" class="fa-delete" style="flex:1;padding:9px;border-radius:9px;border:1.5px solid var(--restant);background:var(--restant-bg);font-size:12.5px;font-weight:600;color:var(--restant);">Supprimer</button>
       </div>`;
-    el.addEventListener('click', ()=>reopenFacture(f));
+    el.querySelector('.fa-view').addEventListener('click', (e)=>{ e.stopPropagation(); reopenFacture(f); });
+    el.querySelector('.fa-edit').addEventListener('click', (e)=>{ e.stopPropagation(); editFacture(f); });
+    el.querySelector('.fa-delete').addEventListener('click', (e)=>{ e.stopPropagation(); deleteFacture(f); });
     list.appendChild(el);
   });
 }
@@ -830,6 +884,43 @@ async function renderFactures(){
 async function reopenFacture(f){
   const {data: lignes} = await sb.from('facture_lignes').select('*').eq('facture_id', f.id).order('ordre');
   openPrintView(f, lignes||[]);
+}
+
+async function editFacture(f){
+  const {data: lignes} = await sb.from('facture_lignes').select('*').eq('facture_id', f.id).order('ordre');
+
+  editingFactureId = f.id;
+  document.getElementById('f-numero').value = f.numero;
+  document.getElementById('f-date').value = f.date_facture;
+  document.getElementById('f-client').value = f.client_nom;
+  document.getElementById('f-client-numero').value = f.client_numero || '';
+  document.getElementById('f-acompte').value = f.acompte;
+
+  document.getElementById('lignes-container').innerHTML = '';
+  document.querySelectorAll('.suggest-row').forEach(s=>s.remove());
+  if(lignes && lignes.length){
+    lignes.forEach(l=>addLigne(l));
+  } else {
+    addLigne();
+  }
+  updateTotals();
+
+  document.getElementById('save-facture').textContent = 'Enregistrer les modifications';
+  document.getElementById('cancel-edit').style.display='block';
+
+  document.querySelectorAll('nav.tabbar button').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelector('[data-tab="tab-nouvelle"]').classList.add('active');
+  document.getElementById('tab-nouvelle').classList.add('active');
+}
+
+async function deleteFacture(f){
+  const ok = confirm(`Supprimer définitivement la facture n° ${f.numero} (${f.client_nom}) ?`);
+  if(!ok) return;
+  const {error} = await sb.from('factures').delete().eq('id', f.id);
+  if(error){ alert('Erreur suppression: '+error.message); return; }
+  await renderFactures();
+  renderCompta();
 }
 
 /* ================= COMPTABILITÉ ================= */
