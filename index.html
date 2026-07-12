@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Nathy Exotic Fruits — Gestion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --cream:#FAF6EE;
+    --paper:#FFFFFF;
+    --ink:#2B2620;
+    --ink-soft:#6B6255;
+    --line:#E7DFCF;
+    --orange:#E17A26;
+    --orange-deep:#C4611A;
+    --leaf:#5E8A47;
+    --leaf-deep:#456634;
+    --restant:#B24A34;
+    --restant-bg:#FBEAE4;
+    --paid-bg:#EAF3E4;
+    --paid:#456634;
+    --radius:14px;
+    --shadow: 0 2px 10px rgba(43,38,32,0.06);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--cream);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-tap-highlight-color:transparent;
+  }
+  h1,h2,h3,.display{
+    font-family:'Fraunces',serif;
+    letter-spacing:-0.01em;
+  }
+  button{font-family:inherit;cursor:pointer;}
+  input,select,textarea{font-family:inherit;font-size:16px;}
+  ::selection{background:var(--orange);color:white;}
+
+  /* ---------- LOGIN ---------- */
+  #login-screen{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+    background:
+      radial-gradient(circle at 15% 20%, #F7DBB8 0%, transparent 45%),
+      radial-gradient(circle at 85% 80%, #DCE9CC 0%, transparent 45%),
+      var(--cream);
+  }
+  .login-card{
+    background:var(--paper);
+    border-radius:20px;
+    box-shadow:0 8px 30px rgba(43,38,32,0.10);
+    padding:36px 30px;
+    width:100%;
+    max-width:380px;
+    text-align:center;
+  }
+  .login-card .logo-mark{
+    font-size:42px;
+    margin-bottom:6px;
+  }
+  .login-card h1{
+    font-size:28px;
+    margin:0 0 2px;
+    color:var(--orange-deep);
+  }
+  .login-card p.sub{
+    margin:0 0 26px;
+    color:var(--ink-soft);
+    font-size:14px;
+  }
+  .user-pick{
+    display:flex;
+    gap:10px;
+    margin-bottom:18px;
+  }
+  .user-btn{
+    flex:1;
+    border:1.5px solid var(--line);
+    background:var(--cream);
+    border-radius:12px;
+    padding:14px 8px;
+    font-weight:600;
+    font-size:15px;
+    color:var(--ink);
+    transition:all .15s;
+  }
+  .user-btn.active{
+    border-color:var(--orange);
+    background:#FDF1E4;
+    color:var(--orange-deep);
+  }
+  #pin-input{
+    width:100%;
+    padding:14px;
+    border-radius:12px;
+    border:1.5px solid var(--line);
+    text-align:center;
+    letter-spacing:6px;
+    font-size:20px;
+    margin-bottom:14px;
+  }
+  .btn-primary{
+    width:100%;
+    background:var(--orange);
+    color:white;
+    border:none;
+    padding:14px;
+    border-radius:12px;
+    font-weight:700;
+    font-size:15px;
+  }
+  .btn-primary:active{background:var(--orange-deep);}
+  #login-error{color:var(--restant);font-size:13px;margin-top:10px;min-height:16px;}
+
+  /* ---------- APP SHELL ---------- */
+  #app{display:none;min-height:100vh;padding-bottom:90px;}
+  header.topbar{
+    background:var(--paper);
+    border-bottom:1px solid var(--line);
+    padding:16px 18px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    position:sticky;top:0;z-index:20;
+  }
+  header.topbar .brand{display:flex;align-items:center;gap:10px;}
+  header.topbar .brand .mark{font-size:26px;}
+  header.topbar h2{margin:0;font-size:19px;color:var(--orange-deep);}
+  header.topbar .who{font-size:12px;color:var(--ink-soft);}
+  #logout-btn{
+    background:none;border:1px solid var(--line);border-radius:10px;
+    padding:8px 12px;font-size:12px;color:var(--ink-soft);font-weight:600;
+  }
+
+  main{max-width:720px;margin:0 auto;padding:18px 14px;}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;animation:fadein .18s ease;}
+  @keyframes fadein{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+  .card{
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:18px;
+    margin-bottom:14px;
+    box-shadow:var(--shadow);
+  }
+  .card h3{margin:0 0 14px;font-size:17px;}
+  .field{margin-bottom:12px;}
+  .field label{
+    display:block;font-size:12px;font-weight:600;color:var(--ink-soft);
+    margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em;
+  }
+  .field input, .field select{
+    width:100%;padding:11px 12px;border:1.5px solid var(--line);
+    border-radius:10px;background:var(--cream);
+  }
+  .row2{display:flex;gap:10px;}
+  .row2 > *{flex:1;}
+
+  /* ligne article */
+  #lignes-container{border-top:1px solid var(--line);margin-top:6px;}
+  .ligne-row{
+    display:grid;grid-template-columns:56px 1fr 90px 34px;gap:8px;
+    align-items:center;padding:10px 0;border-bottom:1px solid var(--line);
+  }
+  .ligne-row input{padding:9px;border:1.5px solid var(--line);border-radius:8px;background:var(--cream);font-size:14px;}
+  .ligne-row .rm-btn{
+    background:none;border:none;color:var(--restant);font-size:20px;line-height:1;
+  }
+  .add-ligne-btn{
+    width:100%;margin-top:10px;padding:11px;border:1.5px dashed var(--orange);
+    background:none;border-radius:10px;color:var(--orange-deep);font-weight:600;font-size:14px;
+  }
+  .suggest-row{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 4px;}
+  .suggest-chip{
+    font-size:12px;padding:6px 10px;border-radius:20px;background:#FDF1E4;
+    color:var(--orange-deep);border:1px solid #F4D9B8;font-weight:600;
+  }
+
+  .totals{margin-top:12px;border-top:2px solid var(--ink);padding-top:12px;}
+  .totals-row{display:flex;justify-content:space-between;padding:6px 0;font-size:15px;}
+  .totals-row.total{font-weight:700;font-size:18px;}
+  .totals-row.restant{color:var(--restant);font-weight:700;}
+
+  .btn-block{
+    width:100%;padding:15px;border-radius:12px;border:none;
+    background:var(--orange);color:white;font-weight:700;font-size:15px;margin-top:8px;
+  }
+  .btn-secondary{
+    width:100%;padding:13px;border-radius:12px;border:1.5px solid var(--line);
+    background:var(--cream);color:var(--ink);font-weight:600;font-size:14px;margin-top:8px;
+  }
+
+  /* bottom nav */
+  nav.tabbar{
+    position:fixed;bottom:0;left:0;right:0;background:var(--paper);
+    border-top:1px solid var(--line);display:flex;z-index:30;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  nav.tabbar button{
+    flex:1;background:none;border:none;padding:10px 4px 8px;
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    color:var(--ink-soft);font-size:10.5px;font-weight:600;
+  }
+  nav.tabbar button .ic{font-size:19px;}
+  nav.tabbar button.active{color:var(--orange-deep);}
+
+  /* liste factures */
+  .facture-item{
+    background:var(--paper);border:1px solid var(--line);border-radius:12px;
+    padding:14px;margin-bottom:10px;box-shadow:var(--shadow);
+  }
+  .facture-item .top-row{display:flex;justify-content:space-between;align-items:baseline;}
+  .facture-item .num{font-weight:700;font-size:15px;}
+  .facture-item .date{font-size:12px;color:var(--ink-soft);}
+  .facture-item .client{font-size:14px;margin:4px 0 8px;color:var(--ink-soft);}
+  .facture-item .amounts{display:flex;justify-content:space-between;align-items:center;}
+  .badge{
+    font-size:11px;font-weight:700;padding:4px 9px;border-radius:20px;
+  }
+  .badge.paid{background:var(--paid-bg);color:var(--paid);}
+  .badge.due{background:var(--restant-bg);color:var(--restant);}
+  .facture-item .montant{font-weight:700;font-size:15px;}
+
+  .search-bar{
+    display:flex;gap:8px;margin-bottom:14px;
+  }
+  .search-bar input{
+    flex:1;padding:11px 14px;border:1.5px solid var(--line);border-radius:12px;background:var(--paper);
+  }
+  .filter-chips{display:flex;gap:8px;margin-bottom:14px;}
+  .filter-chips button{
+    flex:1;padding:9px;border-radius:10px;border:1.5px solid var(--line);
+    background:var(--paper);font-size:12.5px;font-weight:600;color:var(--ink-soft);
+  }
+  .filter-chips button.active{background:var(--orange);border-color:var(--orange);color:white;}
+
+  /* produits */
+  .produit-row{
+    display:grid;grid-template-columns:1fr 78px 78px 30px;gap:8px;align-items:center;
+    padding:10px 0;border-bottom:1px solid var(--line);
+  }
+  .produit-row input{padding:8px;border:1.5px solid var(--line);border-radius:8px;background:var(--cream);font-size:13px;}
+  .produit-row .rm-btn{background:none;border:none;color:var(--restant);font-size:18px;}
+  .col-label{font-size:10px;text-transform:uppercase;color:var(--ink-soft);font-weight:700;letter-spacing:.03em;}
+
+  /* compta */
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+  .stat-card{
+    background:var(--paper);border:1px solid var(--line);border-radius:14px;
+    padding:16px;box-shadow:var(--shadow);
+  }
+  .stat-card .label{font-size:11px;color:var(--ink-soft);font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
+  .stat-card .value{font-family:'Fraunces',serif;font-size:22px;font-weight:700;margin-top:4px;}
+  .stat-card.orange .value{color:var(--orange-deep);}
+  .stat-card.green .value{color:var(--leaf-deep);}
+  .stat-card.red .value{color:var(--restant);}
+
+  .period-select{display:flex;gap:8px;margin-bottom:14px;}
+  .period-select button{
+    flex:1;padding:9px;border-radius:10px;border:1.5px solid var(--line);
+    background:var(--paper);font-size:12.5px;font-weight:600;
+  }
+  .period-select button.active{background:var(--ink);border-color:var(--ink);color:white;}
+
+  .empty-state{text-align:center;padding:40px 20px;color:var(--ink-soft);}
+  .empty-state .ic{font-size:36px;display:block;margin-bottom:8px;}
+
+  /* print facture modal */
+  #print-overlay{
+    display:none;position:fixed;inset:0;background:rgba(43,38,32,.55);z-index:100;
+    align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 12px 40px;
+  }
+  #print-sheet{
+    background:white;width:100%;max-width:420px;border-radius:10px;padding:28px 24px;color:#1a1a1a;
+  }
+  #print-sheet .ps-header{display:flex;justify-content:space-between;margin-bottom:18px;}
+  #print-sheet .ps-brand h2{margin:0;font-size:20px;font-family:'Fraunces',serif;color:var(--orange-deep);}
+  #print-sheet .ps-brand p{margin:2px 0 0;font-size:11px;color:#666;}
+  #print-sheet .ps-meta{text-align:right;font-size:12px;color:#333;}
+  #print-sheet .ps-title{text-align:center;font-family:'Fraunces',serif;font-size:30px;margin:10px 0 18px;}
+  #print-sheet table{width:100%;border-collapse:collapse;font-size:13px;}
+  #print-sheet th,#print-sheet td{border:1px solid #ddd;padding:8px;text-align:left;}
+  #print-sheet th:last-child,#print-sheet td:last-child{text-align:right;}
+  #print-sheet .ps-tot-row td{font-weight:700;}
+  #print-actions{display:flex;gap:10px;margin-top:16px;}
+  #print-actions button{flex:1;padding:12px;border-radius:10px;border:none;font-weight:700;}
+  #close-print{background:#eee;color:#333;}
+  #do-print{background:var(--orange);color:white;}
+
+  @media print{
+    body *{visibility:hidden;}
+    #print-sheet, #print-sheet *{visibility:visible;}
+    #print-sheet{position:fixed;top:0;left:0;width:100%;max-width:100%;box-shadow:none;}
+    #print-actions{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== LOGIN ========== -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="logo-mark">🍍🍊</div>
+    <h1>Nathy Exotic Fruits</h1>
+    <p class="sub">Gestion des ventes &amp; factures</p>
+    <div class="user-pick" id="user-pick"></div>
+    <input id="pin-input" type="password" inputmode="numeric" maxlength="4" placeholder="Code PIN">
+    <button class="btn-primary" id="login-btn">Se connecter</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<!-- ========== APP ========== -->
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="mark">🍍</span>
+      <div>
+        <h2>Nathy Exotic Fruits</h2>
+        <div class="who" id="who-label"></div>
+      </div>
+    </div>
+    <button id="logout-btn">Déconnexion</button>
+  </header>
+
+  <main>
+    <!-- TAB: NOUVELLE FACTURE -->
+    <section class="tab-panel active" id="tab-nouvelle">
+      <div class="card">
+        <h3>Nouvelle facture</h3>
+        <div class="row2">
+          <div class="field">
+            <label>Numéro</label>
+            <input id="f-numero" disabled>
+          </div>
+          <div class="field">
+            <label>Date</label>
+            <input id="f-date" type="date">
+          </div>
+        </div>
+        <div class="field">
+          <label>Client</label>
+          <input id="f-client" placeholder="Nom du client" list="clients-list">
+          <datalist id="clients-list"></datalist>
+        </div>
+        <div class="field">
+          <label>Numéro de téléphone client</label>
+          <input id="f-client-numero" placeholder="77 xxx xx xx">
+        </div>
+
+        <div id="lignes-container"></div>
+        <button class="add-ligne-btn" id="add-ligne">+ Ajouter une ligne</button>
+
+        <div class="totals">
+          <div class="totals-row total"><span>Total</span><span id="t-total">0 fr</span></div>
+          <div class="field" style="margin-top:10px;">
+            <label>Acompte reçu</label>
+            <input id="f-acompte" type="number" inputmode="decimal" placeholder="0" value="0">
+          </div>
+          <div class="totals-row restant"><span>Restant</span><span id="t-restant">0 fr</span></div>
+        </div>
+
+        <button class="btn-block" id="save-facture">Enregistrer la facture</button>
+      </div>
+    </section>
+
+    <!-- TAB: FACTURES -->
+    <section class="tab-panel" id="tab-factures">
+      <div class="search-bar">
+        <input id="search-facture" placeholder="Rechercher un client, un n°…">
+      </div>
+      <div class="filter-chips">
+        <button class="active" data-filter="tous">Toutes</button>
+        <button data-filter="due">Restant dû</button>
+        <button data-filter="paid">Soldées</button>
+      </div>
+      <div id="factures-list"></div>
+    </section>
+
+    <!-- TAB: PRODUITS -->
+    <section class="tab-panel" id="tab-produits">
+      <div class="card">
+        <h3>Catalogue de prix</h3>
+        <div class="produit-row" style="border-bottom:2px solid var(--ink);">
+          <span class="col-label">Fruit</span>
+          <span class="col-label">Gros</span>
+          <span class="col-label">Petit</span>
+          <span></span>
+        </div>
+        <div id="produits-container"></div>
+        <button class="add-ligne-btn" id="add-produit">+ Ajouter un fruit</button>
+        <button class="btn-block" id="save-produits">Enregistrer le catalogue</button>
+      </div>
+    </section>
+
+    <!-- TAB: COMPTA -->
+    <section class="tab-panel" id="tab-compta">
+      <div class="period-select">
+        <button class="active" data-period="jour">Aujourd'hui</button>
+        <button data-period="semaine">Semaine</button>
+        <button data-period="mois">Mois</button>
+        <button data-period="tout">Tout</button>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card orange">
+          <div class="label">Total facturé</div>
+          <div class="value" id="stat-total">0 fr</div>
+        </div>
+        <div class="stat-card green">
+          <div class="label">Encaissé</div>
+          <div class="value" id="stat-encaisse">0 fr</div>
+        </div>
+        <div class="stat-card red">
+          <div class="label">Restant à percevoir</div>
+          <div class="value" id="stat-restant">0 fr</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Nb factures</div>
+          <div class="value" id="stat-nb">0</div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Clients avec restant dû</h3>
+        <div id="creances-list"></div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button class="active" data-tab="tab-nouvelle"><span class="ic">🧾</span>Facture</button>
+    <button data-tab="tab-factures"><span class="ic">📋</span>Historique</button>
+    <button data-tab="tab-produits"><span class="ic">🍊</span>Produits</button>
+    <button data-tab="tab-compta"><span class="ic">📊</span>Compta</button>
+  </nav>
+</div>
+
+<!-- PRINT / PDF OVERLAY -->
+<div id="print-overlay">
+  <div id="print-sheet"></div>
+</div>
+
+<script>
+/* ============================================================
+   CONFIG SUPABASE — remplace par tes propres identifiants
+   (Supabase > Project Settings > API)
+============================================================ */
+const SUPABASE_URL = "https://VOTRE-PROJET.supabase.co";
+const SUPABASE_ANON_KEY = "VOTRE_CLE_ANON_PUBLIC";
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ---------------- state ---------------- */
+let currentUser = null;
+let selectedLoginUser = null;
+let produitsCache = [];
+let facturesCache = [];
+let ligneIdCounter = 0;
+
+/* ---------------- helpers ---------------- */
+function fmt(n){
+  n = Math.round(Number(n)||0);
+  return n.toLocaleString('fr-FR').replace(/,/g,'.') + " fr";
+}
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function uid(){ return 'l'+(ligneIdCounter++); }
+
+/* ================= LOGIN ================= */
+async function loadUsersForLogin(){
+  const {data, error} = await sb.from('utilisateurs').select('*').order('created_at');
+  const wrap = document.getElementById('user-pick');
+  wrap.innerHTML = '';
+  if(error || !data || data.length===0){
+    wrap.innerHTML = '<div style="font-size:13px;color:#B24A34;">Impossible de charger les utilisateurs. Vérifie la config Supabase.</div>';
+    return;
+  }
+  data.forEach(u=>{
+    const btn = document.createElement('button');
+    btn.className='user-btn';
+    btn.textContent = u.nom;
+    btn.onclick = ()=>{
+      document.querySelectorAll('.user-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedLoginUser = u;
+    };
+    wrap.appendChild(btn);
+  });
+  selectedLoginUser = data[0];
+  wrap.firstChild.classList.add('active');
+}
+
+document.getElementById('login-btn').addEventListener('click', ()=>{
+  const pin = document.getElementById('pin-input').value.trim();
+  const errEl = document.getElementById('login-error');
+  if(!selectedLoginUser){ errEl.textContent='Choisis un utilisateur.'; return; }
+  if(pin !== selectedLoginUser.pin){
+    errEl.textContent = 'Code PIN incorrect.';
+    return;
+  }
+  currentUser = selectedLoginUser;
+  errEl.textContent='';
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('who-label').textContent = 'Connecté : ' + currentUser.nom;
+  initApp();
+});
+
+document.getElementById('logout-btn').addEventListener('click', ()=>{
+  currentUser = null;
+  document.getElementById('pin-input').value='';
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+});
+
+/* ================= TABS ================= */
+document.querySelectorAll('nav.tabbar button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('nav.tabbar button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+    if(btn.dataset.tab==='tab-factures') renderFactures();
+    if(btn.dataset.tab==='tab-compta') renderCompta();
+  });
+});
+
+/* ================= INIT APP ================= */
+async function initApp(){
+  document.getElementById('f-date').value = todayISO();
+  await loadProduits();
+  await loadNextNumero();
+  await loadClientsList();
+  addLigne(); // ligne vide de départ
+}
+
+/* ================= PRODUITS ================= */
+async function loadProduits(){
+  const {data, error} = await sb.from('produits').select('*').order('nom');
+  produitsCache = data || [];
+  renderProduitsTab();
+}
+function renderProduitsTab(){
+  const c = document.getElementById('produits-container');
+  c.innerHTML='';
+  produitsCache.forEach(p=>{
+    const row = document.createElement('div');
+    row.className='produit-row';
+    row.dataset.id = p.id;
+    row.innerHTML = `
+      <input class="p-nom" value="${p.nom}">
+      <input class="p-gros" type="number" value="${p.prix_gros}">
+      <input class="p-petit" type="number" value="${p.prix_petit}">
+      <button class="rm-btn">✕</button>`;
+    row.querySelector('.rm-btn').onclick = ()=>row.remove();
+    c.appendChild(row);
+  });
+}
+document.getElementById('add-produit').addEventListener('click', ()=>{
+  const c = document.getElementById('produits-container');
+  const row = document.createElement('div');
+  row.className='produit-row';
+  row.innerHTML = `
+    <input class="p-nom" placeholder="Nom du fruit">
+    <input class="p-gros" type="number" placeholder="0">
+    <input class="p-petit" type="number" placeholder="0">
+    <button class="rm-btn">✕</button>`;
+  row.querySelector('.rm-btn').onclick = ()=>row.remove();
+  c.appendChild(row);
+});
+document.getElementById('save-produits').addEventListener('click', async ()=>{
+  const rows = document.querySelectorAll('#produits-container .produit-row');
+  const upserts = [];
+  rows.forEach(r=>{
+    const nom = r.querySelector('.p-nom').value.trim();
+    if(!nom) return;
+    const obj = {
+      nom,
+      prix_gros: Number(r.querySelector('.p-gros').value)||0,
+      prix_petit: Number(r.querySelector('.p-petit').value)||0
+    };
+    if(r.dataset.id) obj.id = r.dataset.id;
+    upserts.push(obj);
+  });
+  const {error} = await sb.from('produits').upsert(upserts);
+  if(error){ alert('Erreur: '+error.message); return; }
+  await loadProduits();
+  alert('Catalogue enregistré ✓');
+});
+
+/* ================= CLIENTS AUTOCOMPLETE ================= */
+async function loadClientsList(){
+  const {data} = await sb.from('clients').select('nom, numero').order('nom');
+  const dl = document.getElementById('clients-list');
+  dl.innerHTML='';
+  (data||[]).forEach(c=>{
+    const opt = document.createElement('option');
+    opt.value = c.nom;
+    dl.appendChild(opt);
+  });
+  window.__clientsData = data||[];
+}
+document.getElementById('f-client').addEventListener('input', (e)=>{
+  const match = (window.__clientsData||[]).find(c=>c.nom.toLowerCase()===e.target.value.toLowerCase());
+  if(match) document.getElementById('f-client-numero').value = match.numero || '';
+});
+
+/* ================= NUMERO FACTURE ================= */
+async function loadNextNumero(){
+  const {data} = await sb.from('compteurs').select('*').eq('cle','numero_facture').single();
+  const next = (data ? data.valeur : 209) + 1;
+  document.getElementById('f-numero').value = next;
+}
+
+/* ================= LIGNES FACTURE ================= */
+function addLigne(prefill){
+  const container = document.getElementById('lignes-container');
+  const id = uid();
+  const row = document.createElement('div');
+  row.className='ligne-row';
+  row.dataset.id = id;
+  row.innerHTML = `
+    <input class="l-qte" placeholder="1" value="${prefill?prefill.qte:''}">
+    <input class="l-designation" placeholder="Désignation" value="${prefill?prefill.designation:''}" list="produits-datalist">
+    <input class="l-prix" type="number" placeholder="Prix" value="${prefill?prefill.prix:''}">
+    <button class="rm-btn">✕</button>`;
+  row.querySelector('.rm-btn').addEventListener('click', ()=>{ row.remove(); updateTotals(); });
+  row.querySelector('.l-prix').addEventListener('input', updateTotals);
+  row.querySelector('.l-designation').addEventListener('change', (e)=>{
+    const found = produitsCache.find(p=>p.nom.toLowerCase()===e.target.value.toLowerCase());
+    if(found){
+      showSuggestChips(row, found);
+    }
+  });
+  container.appendChild(row);
+  ensureProduitsDatalist();
+  updateTotals();
+}
+function ensureProduitsDatalist(){
+  if(document.getElementById('produits-datalist')) return;
+  const dl = document.createElement('datalist');
+  dl.id='produits-datalist';
+  produitsCache.forEach(p=>{
+    const o=document.createElement('option'); o.value=p.nom; dl.appendChild(o);
+  });
+  document.body.appendChild(dl);
+}
+function showSuggestChips(row, produit){
+  let old = row.nextElementSibling;
+  if(old && old.classList && old.classList.contains('suggest-row')) old.remove();
+  const chipRow = document.createElement('div');
+  chipRow.className='suggest-row';
+  chipRow.innerHTML = `
+    <button type="button" class="suggest-chip" data-p="${produit.prix_gros}">Gros: ${fmt(produit.prix_gros)}</button>
+    <button type="button" class="suggest-chip" data-p="${produit.prix_petit}">Petit: ${fmt(produit.prix_petit)}</button>`;
+  chipRow.querySelectorAll('.suggest-chip').forEach(ch=>{
+    ch.addEventListener('click', ()=>{
+      row.querySelector('.l-prix').value = ch.dataset.p;
+      updateTotals();
+    });
+  });
+  row.after(chipRow);
+}
+document.getElementById('add-ligne').addEventListener('click', ()=>addLigne());
+
+function updateTotals(){
+  let total = 0;
+  document.querySelectorAll('.l-prix').forEach(inp=>{ total += Number(inp.value)||0; });
+  const acompte = Number(document.getElementById('f-acompte').value)||0;
+  document.getElementById('t-total').textContent = fmt(total);
+  document.getElementById('t-restant').textContent = fmt(total - acompte);
+  return {total, restant: total-acompte, acompte};
+}
+document.getElementById('f-acompte').addEventListener('input', updateTotals);
+
+/* ================= SAVE FACTURE ================= */
+document.getElementById('save-facture').addEventListener('click', async ()=>{
+  const clientNom = document.getElementById('f-client').value.trim();
+  if(!clientNom){ alert('Indique le nom du client.'); return; }
+  const clientNumero = document.getElementById('f-client-numero').value.trim();
+  const numero = Number(document.getElementById('f-numero').value);
+  const date = document.getElementById('f-date').value || todayISO();
+  const {total, restant, acompte} = updateTotals();
+
+  const lignesEls = document.querySelectorAll('.ligne-row');
+  const lignes = [];
+  lignesEls.forEach((row, idx)=>{
+    const qte = row.querySelector('.l-qte').value.trim();
+    const designation = row.querySelector('.l-designation').value.trim();
+    const prix = Number(row.querySelector('.l-prix').value)||0;
+    if(designation) lignes.push({qte, designation, prix, ordre:idx});
+  });
+  if(lignes.length===0){ alert('Ajoute au moins une ligne.'); return; }
+
+  const statut = restant<=0 ? 'soldee' : 'en_cours';
+
+  const {data: factureData, error: factureErr} = await sb.from('factures').insert({
+    numero, date_facture: date, client_nom: clientNom, client_numero: clientNumero,
+    utilisateur: currentUser.nom, total, acompte, restant, statut
+  }).select().single();
+
+  if(factureErr){ alert('Erreur enregistrement: '+factureErr.message); return; }
+
+  const lignesToInsert = lignes.map(l=>({...l, facture_id: factureData.id}));
+  await sb.from('facture_lignes').insert(lignesToInsert);
+
+  // upsert client
+  await sb.from('clients').upsert({nom: clientNom, numero: clientNumero}, {onConflict:'nom'}).select();
+
+  // increment compteur
+  await sb.from('compteurs').update({valeur: numero}).eq('cle','numero_facture');
+
+  // show print view
+  openPrintView(factureData, lignes);
+
+  // reset form
+  document.getElementById('f-client').value='';
+  document.getElementById('f-client-numero').value='';
+  document.getElementById('f-acompte').value='0';
+  document.getElementById('lignes-container').innerHTML='';
+  document.querySelectorAll('.suggest-row').forEach(s=>s.remove());
+  addLigne();
+  await loadNextNumero();
+  await loadClientsList();
+});
+
+/* ================= PRINT VIEW ================= */
+function openPrintView(facture, lignes){
+  const sheet = document.getElementById('print-sheet');
+  const rowsHtml = lignes.map(l=>`
+    <tr><td>${l.qte}</td><td>${l.designation}</td><td>${fmt(l.prix)}</td></tr>`).join('');
+  sheet.innerHTML = `
+    <div class="ps-header">
+      <div class="ps-brand">
+        <h2>Nathy Exotic Fruits</h2>
+        <p>NUMÉRO : 771598861</p>
+        <p>ADRESSE : Bourguiba Castor</p>
+      </div>
+      <div class="ps-meta">
+        <div><strong>Facture n°:</strong> ${facture.numero}</div>
+        <div><strong>Date:</strong> ${facture.date_facture.split('-').reverse().join('/')}</div>
+        <div><strong>Client:</strong> ${facture.client_nom}</div>
+        <div><strong>Numéro:</strong> ${facture.client_numero||''}</div>
+      </div>
+    </div>
+    <div class="ps-title">FACTURE</div>
+    <table>
+      <thead><tr><th>Qts</th><th>Désignation</th><th>Prix</th></tr></thead>
+      <tbody>
+        ${rowsHtml}
+        <tr class="ps-tot-row"><td colspan="2">TOTAL</td><td>${fmt(facture.total)}</td></tr>
+        <tr class="ps-tot-row"><td colspan="2">ACOMPTE</td><td>${fmt(facture.acompte)}</td></tr>
+        <tr class="ps-tot-row"><td colspan="2">RESTANT</td><td>${fmt(facture.restant)}</td></tr>
+      </tbody>
+    </table>
+    <div id="print-actions">
+      <button id="close-print">Fermer</button>
+      <button id="do-print">Imprimer / PDF</button>
+    </div>
+  `;
+  document.getElementById('print-overlay').style.display='flex';
+  document.getElementById('close-print').onclick = ()=>{
+    document.getElementById('print-overlay').style.display='none';
+  };
+  document.getElementById('do-print').onclick = ()=>window.print();
+}
+
+/* ================= HISTORIQUE FACTURES ================= */
+let currentFilter = 'tous';
+document.querySelectorAll('.filter-chips button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.filter-chips button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFilter = btn.dataset.filter;
+    renderFactures();
+  });
+});
+document.getElementById('search-facture').addEventListener('input', renderFactures);
+
+async function renderFactures(){
+  const {data} = await sb.from('factures').select('*').order('date_facture', {ascending:false}).order('numero',{ascending:false});
+  facturesCache = data || [];
+  const search = document.getElementById('search-facture').value.toLowerCase().trim();
+  const list = document.getElementById('factures-list');
+  list.innerHTML='';
+
+  let filtered = facturesCache.filter(f=>{
+    if(currentFilter==='due' && f.statut!=='en_cours') return false;
+    if(currentFilter==='paid' && f.statut!=='soldee') return false;
+    if(search){
+      const hay = (f.client_nom+' '+f.numero).toLowerCase();
+      if(!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
+  if(filtered.length===0){
+    list.innerHTML = `<div class="empty-state"><span class="ic">🧾</span>Aucune facture trouvée</div>`;
+    return;
+  }
+
+  filtered.forEach(f=>{
+    const el = document.createElement('div');
+    el.className='facture-item';
+    const badge = f.statut==='soldee'
+      ? `<span class="badge paid">Soldée</span>`
+      : `<span class="badge due">Restant ${fmt(f.restant)}</span>`;
+    el.innerHTML = `
+      <div class="top-row">
+        <span class="num">Facture n° ${f.numero}</span>
+        <span class="date">${f.date_facture.split('-').reverse().join('/')}</span>
+      </div>
+      <div class="client">${f.client_nom}${f.client_numero? ' · '+f.client_numero:''}</div>
+      <div class="amounts">
+        ${badge}
+        <span class="montant">${fmt(f.total)}</span>
+      </div>`;
+    el.addEventListener('click', ()=>reopenFacture(f));
+    list.appendChild(el);
+  });
+}
+
+async function reopenFacture(f){
+  const {data: lignes} = await sb.from('facture_lignes').select('*').eq('facture_id', f.id).order('ordre');
+  openPrintView(f, lignes||[]);
+}
+
+/* ================= COMPTABILITÉ ================= */
+let currentPeriod = 'jour';
+document.querySelectorAll('.period-select button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.period-select button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentPeriod = btn.dataset.period;
+    renderCompta();
+  });
+});
+
+function periodStartDate(period){
+  const now = new Date();
+  if(period==='jour') return todayISO();
+  if(period==='semaine'){
+    const d = new Date(now); d.setDate(d.getDate()-7);
+    return d.toISOString().slice(0,10);
+  }
+  if(period==='mois'){
+    const d = new Date(now.getFullYear(), now.getMonth(), 1);
+    return d.toISOString().slice(0,10);
+  }
+  return null; // tout
+}
+
+async function renderCompta(){
+  const {data} = await sb.from('factures').select('*');
+  const all = data || [];
+  const start = periodStartDate(currentPeriod);
+  const filtered = start ? all.filter(f=>f.date_facture >= start) : all;
+
+  const totalFacture = filtered.reduce((s,f)=>s+Number(f.total),0);
+  const totalEncaisse = filtered.reduce((s,f)=>s+Number(f.acompte),0);
+  const totalRestantPeriode = filtered.reduce((s,f)=>s+Number(f.restant),0);
+
+  document.getElementById('stat-total').textContent = fmt(totalFacture);
+  document.getElementById('stat-encaisse').textContent = fmt(totalEncaisse);
+  document.getElementById('stat-restant').textContent = fmt(totalRestantPeriode);
+  document.getElementById('stat-nb').textContent = filtered.length;
+
+  // créances globales (toutes périodes, non soldées)
+  const creances = all.filter(f=>f.statut==='en_cours' && f.restant>0);
+  const parClient = {};
+  creances.forEach(f=>{
+    parClient[f.client_nom] = (parClient[f.client_nom]||0) + Number(f.restant);
+  });
+  const list = document.getElementById('creances-list');
+  const entries = Object.entries(parClient).sort((a,b)=>b[1]-a[1]);
+  if(entries.length===0){
+    list.innerHTML = `<div class="empty-state"><span class="ic">✅</span>Aucune créance en cours</div>`;
+    return;
+  }
+  list.innerHTML = entries.map(([nom, montant])=>`
+    <div class="facture-item" style="margin-bottom:8px;">
+      <div class="amounts">
+        <span class="client" style="margin:0;">${nom}</span>
+        <span class="montant" style="color:var(--restant);">${fmt(montant)}</span>
+      </div>
+    </div>`).join('');
+}
+
+/* ================= START ================= */
+loadUsersForLogin();
+</script>
+</body>
+</html>
