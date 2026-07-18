@@ -265,12 +265,22 @@
   .stat-card.green .value{color:var(--leaf-deep);}
   .stat-card.red .value{color:var(--restant);}
 
-  .period-select{display:flex;gap:8px;margin-bottom:14px;}
-  .period-select button{
+  .period-select, .period-select-achats{display:flex;gap:8px;margin-bottom:14px;}
+  .period-select button, .period-select-achats button{
     flex:1;padding:9px;border-radius:10px;border:1.5px solid var(--line);
     background:var(--paper);font-size:12.5px;font-weight:600;
   }
-  .period-select button.active{background:var(--ink);border-color:var(--ink);color:white;}
+  .period-select button.active, .period-select-achats button.active{background:var(--ink);border-color:var(--ink);color:white;}
+
+  .achat-row{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:12px 0;border-bottom:1px solid var(--line);
+  }
+  .achat-row:last-child{border-bottom:none;}
+  .achat-row .a-nom{font-weight:600;font-size:14.5px;}
+  .achat-row .a-qte{
+    font-family:'Fraunces',serif;font-weight:700;font-size:17px;color:var(--leaf-deep);
+  }
 
   .empty-state{text-align:center;padding:40px 20px;color:var(--ink-soft);}
   .empty-state .ic{font-size:36px;display:block;margin-bottom:8px;}
@@ -435,6 +445,21 @@
         <div id="creances-list"></div>
       </div>
     </section>
+
+    <!-- TAB: ACHATS (à commander chez le fournisseur) -->
+    <section class="tab-panel" id="tab-achats">
+      <div class="period-select-achats">
+        <button data-period="jour">Aujourd'hui</button>
+        <button data-period="semaine">Semaine</button>
+        <button data-period="mois">Mois</button>
+        <button class="active" data-period="tout">Tout</button>
+      </div>
+      <div class="card">
+        <h3>Total à commander</h3>
+        <p style="margin:-8px 0 14px;font-size:12.5px;color:var(--ink-soft);">Cumul de toutes les factures (soldées, restant dû, tout confondu) sur la période choisie.</p>
+        <div id="achats-list"></div>
+      </div>
+    </section>
   </main>
 
   <nav class="tabbar">
@@ -442,6 +467,7 @@
     <button data-tab="tab-factures"><span class="ic">📋</span>Historique</button>
     <button data-tab="tab-produits"><span class="ic">🍊</span>Produits</button>
     <button data-tab="tab-compta"><span class="ic">📊</span>Compta</button>
+    <button data-tab="tab-achats"><span class="ic">🛒</span>Achats</button>
   </nav>
 </div>
 
@@ -531,6 +557,7 @@ document.querySelectorAll('nav.tabbar button').forEach(btn=>{
     document.getElementById(btn.dataset.tab).classList.add('active');
     if(btn.dataset.tab==='tab-factures') renderFactures();
     if(btn.dataset.tab==='tab-compta') renderCompta();
+    if(btn.dataset.tab==='tab-achats') renderAchats();
   });
 });
 
@@ -982,6 +1009,72 @@ async function renderCompta(){
         <span class="montant" style="color:var(--restant);">${fmt(montant)}</span>
       </div>
     </div>`).join('');
+}
+
+/* ================= ACHATS (récap quantités à commander) ================= */
+let currentAchatsPeriod = 'tout';
+document.querySelectorAll('.period-select-achats button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.period-select-achats button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentAchatsPeriod = btn.dataset.period;
+    renderAchats();
+  });
+});
+
+// Extrait un nombre (gère les fractions comme "1/2") + une unité optionnelle depuis un texte de quantité
+function parseQte(str){
+  const s = (str||'').trim();
+  if(!s) return {n:0, unit:''};
+  const fracMatch = s.match(/^(\d+)\s*\/\s*(\d+)\s*(.*)$/);
+  if(fracMatch){
+    return {n: Number(fracMatch[1])/Number(fracMatch[2]), unit: fracMatch[3].trim()};
+  }
+  const numMatch = s.match(/^(\d+(?:[.,]\d+)?)\s*(.*)$/);
+  if(numMatch){
+    return {n: Number(numMatch[1].replace(',','.')), unit: numMatch[2].trim()};
+  }
+  // pas de nombre reconnu : on compte l'entrée comme 1 unité "telle quelle"
+  return {n:1, unit: s};
+}
+
+async function renderAchats(){
+  const start = periodStartDate(currentAchatsPeriod);
+  let query = sb.from('facture_lignes').select('qte, designation, factures!inner(date_facture)');
+  if(start) query = query.gte('factures.date_facture', start);
+  const {data, error} = await query;
+  const list = document.getElementById('achats-list');
+
+  if(error){
+    list.innerHTML = `<div class="empty-state"><span class="ic">⚠️</span>Erreur de chargement</div>`;
+    return;
+  }
+  const lignes = data || [];
+  if(lignes.length===0){
+    list.innerHTML = `<div class="empty-state"><span class="ic">🛒</span>Rien à commander sur cette période</div>`;
+    return;
+  }
+
+  // regroupe par désignation (+ unité si précisée), additionne les quantités
+  const groups = {};
+  lignes.forEach(l=>{
+    const nomKey = (l.designation||'').trim();
+    if(!nomKey) return;
+    const {n, unit} = parseQte(l.qte);
+    const key = nomKey.toLowerCase() + '|' + unit.toLowerCase();
+    if(!groups[key]) groups[key] = {nom: nomKey, unit, total: 0};
+    groups[key].total += n;
+  });
+
+  const entries = Object.values(groups).sort((a,b)=>a.nom.localeCompare(b.nom));
+  list.innerHTML = entries.map(g=>{
+    const totalDisplay = Number.isInteger(g.total) ? g.total : g.total.toFixed(2).replace(/\.00$/,'');
+    return `
+    <div class="achat-row">
+      <span class="a-nom">${g.nom}</span>
+      <span class="a-qte">${totalDisplay}${g.unit? ' '+g.unit:''}</span>
+    </div>`;
+  }).join('');
 }
 
 /* ================= START ================= */
